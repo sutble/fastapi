@@ -4,7 +4,10 @@ from pydantic import BaseModel
 from typing import List
 import io
 from starlette.responses import StreamingResponse
-from PIL import Image
+import PIL.Image
+import requests
+from fastai import *
+from fastai.vision import *
 
 
 class ModelName(str, Enum):
@@ -19,12 +22,24 @@ class Item(BaseModel):
     price: float
     tax: float = None
 
+
+path = Path('.')
+export_file_name = 'export.pkl'
+learn = load_learner(path, export_file_name)
+
 app = FastAPI()
 
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Hello Borld"}
+
+
+
+@app.get("/g/")
+async def read_items(q: List[str] = Query(None)):
+    query_items = {"q": q}
+    return query_items
 
 
 @app.get("/items/{item_id}")
@@ -40,6 +55,23 @@ async def get_model(model_name: ModelName):
         return {"model_name": model_name, "message": "LeCNN all the images"}
     return {"model_name": model_name, "message": "Have some residuals"}
 
+
+
+@app.get("/bears/predict/")
+async def predict(url:str):
+    response = requests.get(url, stream=True)
+    img = PIL.Image.open(response.raw)
+    #img.show()
+    imgByteArr = io.BytesIO()
+    img.save(imgByteArr, format='PNG')
+    img = open_image(imgByteArr)
+    prediction = learn.predict(img)[0]
+    return {"prediction":str(prediction)}
+    #img2 = Image.open(imgByteArr)
+    #img2.show()
+    #img.thumbnail(max_size)
+    #return StreamingResponse(imgByteArr, media_type="image/png")
+    #return {"response": response.status_code}
 
 
 @app.get("/files/{file_path:path}")
@@ -67,6 +99,7 @@ async def read_items(q: List[str] = Query(None)):
     query_items = {"q": q}
     return query_items
 
+
 @app.post("/items/")
 async def create_item(item: Item):
     item_dict = item.dict()
@@ -77,9 +110,9 @@ async def create_item(item: Item):
 
 
 
-@app.put("/items/{item_id}")
-async def create_item(item_id: int, item: Item):
-    return {"item_id": item_id, **item.dict()}
+# @app.put("/items/{item_id}")
+# async def create_item(item_id: int, item: Item):
+#     return {"item_id": item_id, **item.dict()}
 
 
 @app.post("/vector_image")
